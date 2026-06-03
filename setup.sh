@@ -28,7 +28,7 @@ pip install -r "$BASE_DIR/ai-toolkit/requirements.txt" --quiet
 # Install pipeline dependencies
 echo "Installing pipeline dependencies..."
 pip install \
-    "transformers>=4.40.0" \
+    "transformers>=4.48.0" \
     accelerate \
     "diffusers>=0.30.0" \
     sentencepiece \
@@ -38,6 +38,9 @@ pip install \
     bitsandbytes \
     tqdm \
     --quiet
+
+# Clear HF modules cache to avoid stale Florence-2 dynamic module conflicts
+rm -rf ~/.cache/huggingface/modules/
 
 # HuggingFace login
 if [ -n "$HF_TOKEN" ]; then
