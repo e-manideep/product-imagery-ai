@@ -17,7 +17,7 @@ echo "  TRAIN_STEPS:  $TRAIN_STEPS"
 echo "  LORA_RANK:    $LORA_RANK"
 echo ""
 
-# Preflight checks
+# Preflight
 if [ ! -f "$BASE_DIR/train_dreambooth_lora_flux.py" ]; then
     echo "ERROR: Run setup.sh first."
     exit 1
@@ -29,24 +29,24 @@ if [ "$IMAGE_COUNT" -eq 0 ]; then
     exit 1
 fi
 echo "Found $IMAGE_COUNT images."
+
+# Create clean image-only directory (dreambooth script loads ALL files as images)
+CLEAN_DIR="$BASE_DIR/output/train_images_clean"
+rm -rf "$CLEAN_DIR" && mkdir -p "$CLEAN_DIR"
+find "$DATA_DIR" \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) \
+    -exec cp {} "$CLEAN_DIR/" \;
+echo "Copied $IMAGE_COUNT images to clean training dir."
 echo ""
 
-# Step 1: Caption
+# Train
 echo "================================================="
-echo " [1/2] Captioning images..."
-echo "================================================="
-python "$BASE_DIR/caption.py" --data_dir "$DATA_DIR" --trigger_word "$TRIGGER_WORD"
-echo ""
-
-# Step 2: Train
-echo "================================================="
-echo " [2/2] Training FLUX DreamBooth LoRA..."
+echo " Training FLUX DreamBooth LoRA..."
 echo "================================================="
 mkdir -p "$OUTPUT_DIR"
 
 accelerate launch "$BASE_DIR/train_dreambooth_lora_flux.py" \
     --pretrained_model_name_or_path="black-forest-labs/FLUX.1-dev" \
-    --instance_data_dir="$DATA_DIR" \
+    --instance_data_dir="$CLEAN_DIR" \
     --output_dir="$OUTPUT_DIR" \
     --mixed_precision="bf16" \
     --instance_prompt="a photo of ${TRIGGER_WORD} perfume bottle" \
