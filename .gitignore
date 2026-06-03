@@ -1,0 +1,41 @@
+# Product images and captions (upload manually to RunPod)
+data/product/*.jpg
+data/product/*.jpeg
+data/product/*.png
+data/product/*.webp
+data/product/*.bmp
+data/product/*.txt
+
+# Training outputs
+output/
+configs/active_config.yaml
+
+# ai-toolkit (cloned by setup.sh on RunPod)
+ai-toolkit/
+
+# Model weights
+*.safetensors
+*.ckpt
+*.pt
+*.bin
+*.pth
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
