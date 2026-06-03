@@ -1,9 +1,4 @@
-# Product images and captions (upload manually to RunPod)
-data/product/*.jpg
-data/product/*.jpeg
-data/product/*.png
-data/product/*.webp
-data/product/*.bmp
+# Caption files (auto-generated during training)
 data/product/*.txt
 
 # Training outputs

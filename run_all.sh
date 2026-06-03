@@ -18,7 +18,7 @@ export TRAIN_STEPS="${TRAIN_STEPS:-1000}"
 export RUN_NAME="${RUN_NAME:-product_lora}"
 export DATA_DIR="${DATA_DIR:-$BASE_DIR/data/product}"
 export LR="${LR:-1e-4}"
-export QUANTIZE="${QUANTIZE:-false}"   # set true if using 40GB GPU
+export QUANTIZE="${QUANTIZE:-true}"    # true for 24GB GPU (RTX 4090); set false for 80GB+
 export SAMPLE_EVERY="${SAMPLE_EVERY:-250}"
 
 echo "================================================="
