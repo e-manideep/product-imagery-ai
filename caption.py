@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Auto-caption product images using Florence-2-large.
+Auto-caption product images using BLIP (blip-image-captioning-large).
 Writes a .txt file alongside each image with the trigger word prepended.
 """
 
@@ -11,50 +11,39 @@ from pathlib import Path
 
 import torch
 from PIL import Image
-from transformers import AutoProcessor, AutoModelForCausalLM
+from transformers import BlipProcessor, BlipForConditionalGeneration
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 
 def load_model(device):
-    print("Loading Florence-2-large captioner...")
-    processor = AutoProcessor.from_pretrained(
-        "microsoft/Florence-2-large", trust_remote_code=True
+    print("Loading BLIP captioner...")
+    processor = BlipProcessor.from_pretrained(
+        "Salesforce/blip-image-captioning-large"
     )
-    model = AutoModelForCausalLM.from_pretrained(
-        "microsoft/Florence-2-large",
-        trust_remote_code=True,
+    model = BlipForConditionalGeneration.from_pretrained(
+        "Salesforce/blip-image-captioning-large",
         torch_dtype=torch.float16,
     ).to(device)
     model.eval()
-    print("Florence-2 loaded.")
+    print("BLIP loaded.")
     return processor, model
 
 
 def caption_single(image_path, processor, model, device):
     image = Image.open(image_path).convert("RGB")
-    inputs = processor(
-        text="<MORE_DETAILED_CAPTION>",
-        images=image,
-        return_tensors="pt",
-    ).to(device, torch.float16)
+    inputs = processor(images=image, return_tensors="pt").to(device, torch.float16)
 
     with torch.no_grad():
         generated_ids = model.generate(
-            input_ids=inputs["input_ids"],
-            pixel_values=inputs["pixel_values"],
-            max_new_tokens=256,
-            do_sample=False,
-            num_beams=3,
+            **inputs,
+            max_new_tokens=100,
+            num_beams=5,
+            min_length=10,
         )
 
-    raw = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
-    result = processor.post_process_generation(
-        raw,
-        task="<MORE_DETAILED_CAPTION>",
-        image_size=(image.width, image.height),
-    )
-    return result["<MORE_DETAILED_CAPTION>"].strip()
+    caption = processor.decode(generated_ids[0], skip_special_tokens=True).strip()
+    return caption
 
 
 def main():
@@ -106,7 +95,6 @@ def main():
         except Exception as e:
             print(f"  [err] {img_path.name}: {e}")
 
-    # Free GPU memory before training starts
     del model, processor
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
