@@ -10,7 +10,9 @@ echo "Base directory: $BASE_DIR"
 
 # System packages
 apt-get update -qq
-apt-get install -y -qq git wget curl libgl1-mesa-glx libglib2.0-0
+# libgl1-mesa-glx was renamed to libgl1 in Ubuntu 24.04
+apt-get install -y -qq git wget curl libglib2.0-0 \
+    libgl1-mesa-glx 2>/dev/null || apt-get install -y -qq libgl1 2>/dev/null || true
 
 # Install all dependencies
 # diffusers==0.32.0: supports FLUX, compatible with PyTorch 2.4.0
