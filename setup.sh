@@ -44,20 +44,22 @@ pip install \
 # Patch ai-toolkit: make WanTransformer3DModel optional (added in diffusers 0.33+,
 # not needed for FLUX LoRA training, incompatible with diffusers 0.32 + PyTorch 2.4)
 echo "Patching ai-toolkit for diffusers 0.32 compatibility..."
-python3 -c "
-path = '$BASE_DIR/ai-toolkit/toolkit/lora_special.py'
+LORA_SPECIAL="$BASE_DIR/ai-toolkit/toolkit/lora_special.py"
+python3 - "$LORA_SPECIAL" << 'PYEOF'
+import sys
+path = sys.argv[1]
 with open(path) as f:
     c = f.read()
 old = 'from diffusers import UNet2DConditionModel, PixArtTransformer2DModel, AuraFlowTransformer2DModel, WanTransformer3DModel'
-new = 'from diffusers import UNet2DConditionModel, PixArtTransformer2DModel, AuraFlowTransformer2DModel\ntry:\n    from diffusers import WanTransformer3DModel\nexcept ImportError:\n    WanTransformer3DModel = None'
+new = ('from diffusers import UNet2DConditionModel, PixArtTransformer2DModel, AuraFlowTransformer2DModel\n'
+       'try:\n    from diffusers import WanTransformer3DModel\nexcept ImportError:\n    WanTransformer3DModel = None')
 if old in c:
-    c = c.replace(old, new)
     with open(path, 'w') as f:
-        f.write(c)
+        f.write(c.replace(old, new))
     print('  lora_special.py patched.')
 else:
-    print('  lora_special.py already patched or import line not found.')
-"
+    print('  lora_special.py already patched.')
+PYEOF
 
 # Clear HF modules cache to avoid stale Florence-2 dynamic module conflicts
 rm -rf ~/.cache/huggingface/modules/
