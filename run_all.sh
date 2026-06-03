@@ -69,19 +69,18 @@ accelerate launch "$BASE_DIR/train_dreambooth_lora_flux.py" \
     --output_dir="$OUTPUT_DIR" \
     --mixed_precision="bf16" \
     --instance_prompt="$INSTANCE_PROMPT" \
-    --resolution=1024 \
+    --resolution=768 \
     --train_batch_size=1 \
     --gradient_accumulation_steps=4 \
     --gradient_checkpointing \
+    --optimizer="adamw8bit" \
     --learning_rate=1e-4 \
     --lr_scheduler="constant" \
     --lr_warmup_steps=0 \
     --max_train_steps="$TRAIN_STEPS" \
     --rank="$LORA_RANK" \
     --seed=42 \
-    --checkpointing_steps=250 \
-    --validation_prompt="a photo of ${TRIGGER_WORD} perfume bottle on a marble table, product photography" \
-    --validation_epochs=500
+    --checkpointing_steps=250
 
 echo ""
 
