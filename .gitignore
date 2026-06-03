@@ -3,6 +3,9 @@ data/product/*.txt
 
 # Training outputs
 output/
+
+# Keep results folder
+!results/
 configs/active_config.yaml
 
 # ai-toolkit (cloned by setup.sh on RunPod)
