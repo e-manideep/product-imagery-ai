@@ -30,7 +30,7 @@ echo "Installing pipeline dependencies..."
 pip install \
     "transformers>=4.48.0" \
     accelerate \
-    "diffusers>=0.30.0" \
+    "diffusers==0.31.0" \
     sentencepiece \
     protobuf \
     pillow \
