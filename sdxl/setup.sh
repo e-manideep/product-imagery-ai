@@ -40,6 +40,13 @@ echo "Downloading advanced SDXL training script (v${DIFFUSERS_VERSION})..."
 wget -q "https://raw.githubusercontent.com/huggingface/diffusers/v${DIFFUSERS_VERSION}/examples/advanced_diffusion_training/train_dreambooth_lora_sdxl_advanced.py" \
     -O "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py"
 
+# Patch a path bug in the final embeddings save: the script builds the filename
+# from the full output_dir, which produces an invalid nested path when output_dir
+# is absolute and crashes AFTER training completes. Use the basename like the
+# script's other (correct) save site does.
+sed -i 's|f"{args.output_dir}/{args.output_dir}_emb.safetensors"|f"{args.output_dir}/{Path(args.output_dir).name}_emb.safetensors"|' \
+    "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py"
+
 # Non-interactive accelerate config (single GPU)
 echo "Configuring accelerate..."
 accelerate config default 2>/dev/null || true
