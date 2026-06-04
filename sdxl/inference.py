@@ -43,6 +43,11 @@ def main():
     parser.add_argument("--num_images", type=int, default=6)
     parser.add_argument("--steps", type=int, default=30)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
+    parser.add_argument("--trigger_word", default="xtbll",
+                        help="Word you use in --prompt for the product; auto-swapped for the learned token")
+    parser.add_argument("--prompt", action="append", default=None,
+                        help="Custom prompt (repeatable). Write the product as the trigger word, e.g. "
+                             "'a man holding xtbll, candid street photo'. Overrides the default scenes.")
     args = parser.parse_args()
 
     from diffusers import DiffusionPipeline, AutoencoderKL
@@ -82,11 +87,17 @@ def main():
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    n = min(args.num_images, len(SCENES))
+
+    # Custom prompts (trigger word -> learned token) or the default scenes.
+    if args.prompt:
+        prompts = [p.replace(args.trigger_word, tok_str) for p in args.prompt]
+    else:
+        prompts = [s.format(tok=tok_str) for s in SCENES[: args.num_images]]
+    n = len(prompts)
 
     print(f"\nGenerating {n} images...\n")
     for i in range(n):
-        prompt = SCENES[i].format(tok=tok_str)
+        prompt = prompts[i]
         print(f"[{i+1}/{n}] {prompt[:80]}...")
         image = pipe(
             prompt=prompt,
