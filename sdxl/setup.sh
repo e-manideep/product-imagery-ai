@@ -14,15 +14,17 @@ apt-get update -qq
 apt-get install -y -qq git wget curl libglib2.0-0 \
     libgl1-mesa-glx 2>/dev/null || apt-get install -y -qq libgl1 2>/dev/null || true
 
-# Python deps
-# - diffusers from source: the advanced training script lives in examples/ and
-#   tracks the diffusers main branch
-# - peft >= 0.11: required for DoRA (use_dora)
-# - openai: GPT-4o vision captioning
-echo "Installing Python dependencies..."
+# Python deps - PINNED for torch 2.4 compatibility.
+# transformers 5.x / latest diffusers reference torch.float8_e8m0fnu (torch 2.7+),
+# which breaks on the torch 2.4 pods. This pinned set is known-good and supports
+# DoRA (--use_dora) + pivotal tuning. The training script is pulled from the
+# matching diffusers release tag so check_min_version passes.
+DIFFUSERS_VERSION="0.32.0"
+echo "Installing Python dependencies (pinned for torch 2.4)..."
 pip install \
-    "transformers>=4.44.0" \
-    "peft>=0.11.0" \
+    "transformers==4.46.3" \
+    "diffusers==${DIFFUSERS_VERSION}" \
+    "peft==0.13.2" \
     accelerate \
     datasets \
     safetensors \
@@ -33,12 +35,9 @@ pip install \
     prodigyopt \
     --quiet
 
-echo "Installing diffusers from source..."
-pip install git+https://github.com/huggingface/diffusers.git --quiet
-
-# Download the advanced SDXL DreamBooth LoRA training script (self-contained)
-echo "Downloading advanced SDXL training script..."
-wget -q "https://raw.githubusercontent.com/huggingface/diffusers/main/examples/advanced_diffusion_training/train_dreambooth_lora_sdxl_advanced.py" \
+# Download the advanced SDXL training script from the matching release tag
+echo "Downloading advanced SDXL training script (v${DIFFUSERS_VERSION})..."
+wget -q "https://raw.githubusercontent.com/huggingface/diffusers/v${DIFFUSERS_VERSION}/examples/advanced_diffusion_training/train_dreambooth_lora_sdxl_advanced.py" \
     -O "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py"
 
 # Non-interactive accelerate config (single GPU)
