@@ -11,6 +11,11 @@ configs/active_config.yaml
 # ai-toolkit (cloned by setup.sh on RunPod)
 ai-toolkit/
 
+# SDXL run artifacts (downloaded script, built dataset)
+sdxl/train_dreambooth_lora_sdxl_advanced.py
+sdxl/dataset/
+sdxl/output/
+
 # Model weights
 *.safetensors
 *.ckpt
