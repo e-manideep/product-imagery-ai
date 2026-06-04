@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-Caption product images with GPT-4o vision for pivotal-tuning DreamBooth.
+Generate scene-only training captions with a vision model.
 
-The captioning rule (this is the whole point):
+Run this ONCE (locally or anywhere with a key). It writes captions.jsonl, which
+is committed to the repo so the GPU pod never needs an API key.
+
+Backend:
+  - OpenRouter if OPENROUTER_API_KEY is set (base_url = openrouter.ai/api/v1)
+  - OpenAI    if OPENAI_API_KEY is set
+
+The captioning rule (the whole point of Run 002):
   - Refer to the product ONLY by the trigger token (e.g. "xtbll").
   - NEVER describe the product's color, shape, material, cap, label, or text.
-    Those attributes must be captured by the trained token, not the caption.
-  - DO describe everything else: surface, background, lighting, setting,
-    other objects, composition.
-
-Builds a clean image folder with a metadata.jsonl that the SDXL advanced
-training script consumes via --dataset_name + --caption_column.
+    Those attributes are learned by the token, not the caption.
+  - DO describe everything else: surface, background, lighting, setting, composition.
 """
 
 import os
@@ -33,37 +36,66 @@ Hard rules:
 - One sentence. Begin the sentence with "{trigger}". Maximum 25 words. No lists, no quotes."""
 
 
+def make_client():
+    """Return (client, default_model) for whichever backend has a key."""
+    from openai import OpenAI
+
+    if os.environ.get("OPENROUTER_API_KEY"):
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.environ["OPENROUTER_API_KEY"],
+        )
+        return client, "openai/gpt-4o"
+    if os.environ.get("OPENAI_API_KEY"):
+        return OpenAI(), "gpt-4o"
+
+    print("ERROR: set OPENROUTER_API_KEY or OPENAI_API_KEY.")
+    sys.exit(1)
+
+
 def encode_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
-def caption_one(client, image_path, trigger, model):
+def caption_one(client, model, image_path, trigger, retries=3):
     b64 = encode_image(image_path)
     ext = image_path.suffix.lower().lstrip(".")
     mime = "jpeg" if ext in ("jpg", "jpeg") else ext
 
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_RULES.format(trigger=trigger)},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Write the training caption for this image."},
+    last_err = None
+    for attempt in range(retries):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_RULES.format(trigger=trigger)},
                     {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/{mime};base64,{b64}"},
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Write the training caption for this image."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/{mime};base64,{b64}"}},
+                        ],
                     },
                 ],
-            },
-        ],
-        max_tokens=80,
-        temperature=0.4,
-    )
-    caption = resp.choices[0].message.content.strip().strip('"')
+                # Large budget so reasoning models (Gemini 2.5/3.x) finish thinking
+                # and still emit the caption -- reasoning counts against max_tokens.
+                max_tokens=2000,
+                temperature=0.4,
+            )
+            content = resp.choices[0].message.content
+            if content and content.strip():
+                # Last non-empty line, in case any preamble slips through.
+                caption = [ln for ln in content.strip().splitlines() if ln.strip()][-1]
+                caption = caption.strip().strip('"').strip()
+                break
+            last_err = "empty response from model"
+        except Exception as e:
+            last_err = str(e)
+    else:
+        raise ValueError(last_err or "captioning failed")
 
-    # Safety net: guarantee the trigger token is present and leads the caption.
+    # Guarantee the trigger token leads the caption.
     if trigger not in caption:
         caption = f"{trigger} {caption}"
     if not caption.lower().startswith(trigger):
@@ -74,58 +106,38 @@ def caption_one(client, image_path, trigger, model):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--src_dir", required=True, help="Folder of source product images")
-    parser.add_argument("--out_dir", required=True, help="Clean folder to build (images + metadata.jsonl)")
+    parser.add_argument("--out", required=True, help="captions.jsonl to write")
     parser.add_argument("--trigger_word", default="xtbll")
-    parser.add_argument("--model", default="gpt-4o")
+    parser.add_argument("--model", default=None, help="Override the vision model")
     args = parser.parse_args()
 
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("ERROR: OPENAI_API_KEY is not set.")
-        sys.exit(1)
-
-    try:
-        from openai import OpenAI
-    except ImportError:
-        print("ERROR: openai package missing. Run: pip install openai")
-        sys.exit(1)
-
     src = Path(args.src_dir)
-    out = Path(args.out_dir)
     images = sorted([f for f in src.iterdir() if f.suffix.lower() in SUPPORTED_EXTS])
     if not images:
         print(f"ERROR: no images in {src}")
         sys.exit(1)
 
-    out.mkdir(parents=True, exist_ok=True)
-    # Clear any stale metadata so a re-run is clean
-    meta_path = out / "metadata.jsonl"
-    if meta_path.exists():
-        meta_path.unlink()
+    client, default_model = make_client()
+    model = args.model or default_model
 
-    client = OpenAI()
-    print(f"Captioning {len(images)} images with {args.model}")
+    print(f"Captioning {len(images)} images with {model}")
     print(f"Trigger token: '{args.trigger_word}'\n")
 
     records = []
     for i, img in enumerate(images, 1):
-        dst_name = f"{i:03d}{img.suffix.lower()}"
-        dst = out / dst_name
-        dst.write_bytes(img.read_bytes())
-
+        canonical = f"{i:03d}{img.suffix.lower()}"
         try:
-            caption = caption_one(client, img, args.trigger_word, args.model)
+            caption = caption_one(client, model, img, args.trigger_word)
         except Exception as e:
             print(f"  [err] {img.name}: {e}")
             caption = f"{args.trigger_word} on a plain surface, soft studio lighting"
-
-        records.append({"file_name": dst_name, "prompt": caption})
+        records.append({"file_name": canonical, "prompt": caption})
         print(f"  [{i:02d}/{len(images)}] {caption}")
 
-    with open(meta_path, "w", encoding="utf-8") as f:
+    with open(args.out, "w", encoding="utf-8") as f:
         for r in records:
             f.write(json.dumps(r) + "\n")
-
-    print(f"\nWrote {len(records)} captions to {meta_path}")
+    print(f"\nWrote {len(records)} captions to {args.out}")
 
 
 if __name__ == "__main__":

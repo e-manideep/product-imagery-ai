@@ -1,12 +1,12 @@
 #!/bin/bash
 # Run 002 - SDXL DreamBooth with DoRA + Pivotal Tuning
-# Pipeline: GPT-4o captioning -> train -> inference
+# Pipeline: (caption if needed) -> build dataset -> train -> inference
 #
 #   export HF_TOKEN=hf_xxx
-#   export OPENAI_API_KEY=sk-xxx
 #   bash run.sh
 #
-# Every knob below is overridable via env var.
+# Captions: if captions.jsonl is already committed, NO API key is needed on the pod.
+# To (re)generate captions, set OPENROUTER_API_KEY (or OPENAI_API_KEY) before running.
 
 set -e
 
@@ -15,17 +15,29 @@ export REPO_ROOT="$(cd "$SDXL_DIR/.." && pwd)"
 
 export TRIGGER_WORD="${TRIGGER_WORD:-xtbll}"
 export RANK="${RANK:-32}"
-export MAX_STEPS="${MAX_STEPS:-2000}"
-export LEARNING_RATE="${LEARNING_RATE:-1e-4}"   # UNet DoRA + token embeddings
-export TEXT_ENCODER_LR="${TEXT_ENCODER_LR:-5e-6}"
-export TI_TOKENS="${TI_TOKENS:-2}"              # new tokens per concept (<s0><s1>)
-export TI_FRAC="${TI_FRAC:-0.5}"                # fraction of steps that train the TI embeddings
+export MAX_STEPS="${MAX_STEPS:-1500}"
+export TI_TOKENS="${TI_TOKENS:-2}"
+export TI_FRAC="${TI_FRAC:-0.5}"
 export BATCH_SIZE="${BATCH_SIZE:-1}"
 export GRAD_ACCUM="${GRAD_ACCUM:-4}"
 export RESOLUTION="${RESOLUTION:-1024}"
 export REPORT_TO="${REPORT_TO:-tensorboard}"
 
+# Optimizer + learning rates.
+# Prodigy is the default: it auto-estimates the LR per param group, which is the
+# reliable choice for pivotal tuning (two param groups at very different ideal
+# rates). Switch to adamW and sane AdamW rates are applied automatically.
+export OPTIMIZER="${OPTIMIZER:-prodigy}"
+if [ "$OPTIMIZER" = "prodigy" ]; then
+    export LEARNING_RATE="${LEARNING_RATE:-1.0}"
+    export TEXT_ENCODER_LR="${TEXT_ENCODER_LR:-1.0}"
+else
+    export LEARNING_RATE="${LEARNING_RATE:-1e-4}"
+    export TEXT_ENCODER_LR="${TEXT_ENCODER_LR:-5e-6}"
+fi
+
 export SRC_DIR="${SRC_DIR:-$REPO_ROOT/data/product}"
+export CAPTIONS="${CAPTIONS:-$SDXL_DIR/captions.jsonl}"
 export CLEAN_DIR="${CLEAN_DIR:-$SDXL_DIR/dataset}"
 export OUTPUT_DIR="${OUTPUT_DIR:-$SDXL_DIR/output/product_dora}"
 
@@ -33,16 +45,14 @@ echo "================================================="
 echo " Run 002 - SDXL DoRA + Pivotal Tuning"
 echo "================================================="
 echo "  TRIGGER_WORD:    $TRIGGER_WORD"
+echo "  OPTIMIZER:       $OPTIMIZER"
+echo "  LEARNING_RATE:   $LEARNING_RATE"
+echo "  TEXT_ENCODER_LR: $TEXT_ENCODER_LR"
 echo "  RANK:            $RANK"
 echo "  MAX_STEPS:       $MAX_STEPS"
-echo "  LEARNING_RATE:   $LEARNING_RATE  (UNet DoRA + token embeddings)"
-echo "  TEXT_ENCODER_LR: $TEXT_ENCODER_LR"
-echo "  TI tokens:       $TI_TOKENS   (<s0>..<s$((TI_TOKENS-1))>)"
-echo "  SRC_DIR:         $SRC_DIR"
-echo "  OUTPUT_DIR:      $OUTPUT_DIR"
+echo "  TI tokens:       $TI_TOKENS  (<s0>..<s$((TI_TOKENS-1))>)"
 echo ""
 
-# Preflight
 if [ ! -f "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py" ]; then
     echo "ERROR: training script missing. Run setup.sh first."
     exit 1
@@ -55,20 +65,34 @@ fi
 echo "Found $IMG_COUNT source images."
 echo ""
 
-# ── Step 1: GPT-4o captioning -> clean dataset folder + metadata.jsonl ────────
+# ── Step 1: captions ─────────────────────────────────────────────────────────
 echo "================================================="
-echo " [1/3] Captioning with GPT-4o (scene-only)..."
+echo " [1/4] Captions"
 echo "================================================="
-rm -rf "$CLEAN_DIR"
-python "$SDXL_DIR/caption.py" \
-    --src_dir "$SRC_DIR" \
-    --out_dir "$CLEAN_DIR" \
-    --trigger_word "$TRIGGER_WORD"
+if [ -f "$CAPTIONS" ]; then
+    echo "Using committed captions: $CAPTIONS (no API call)."
+else
+    echo "captions.jsonl not found -> generating via vision model..."
+    python "$SDXL_DIR/caption.py" \
+        --src_dir "$SRC_DIR" \
+        --out "$CAPTIONS" \
+        --trigger_word "$TRIGGER_WORD"
+fi
 echo ""
 
-# ── Step 2: Train SDXL DoRA + Pivotal Tuning ─────────────────────────────────
+# ── Step 2: build dataset folder ─────────────────────────────────────────────
 echo "================================================="
-echo " [2/3] Training (DoRA + Pivotal Tuning)..."
+echo " [2/4] Build dataset"
+echo "================================================="
+python "$SDXL_DIR/build_dataset.py" \
+    --src_dir "$SRC_DIR" \
+    --captions "$CAPTIONS" \
+    --out_dir "$CLEAN_DIR"
+echo ""
+
+# ── Step 3: train ────────────────────────────────────────────────────────────
+echo "================================================="
+echo " [3/4] Train (DoRA + Pivotal Tuning)"
 echo "================================================="
 mkdir -p "$OUTPUT_DIR"
 
@@ -92,7 +116,9 @@ accelerate launch "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py" \
     --gradient_checkpointing \
     --learning_rate="$LEARNING_RATE" \
     --text_encoder_lr="$TEXT_ENCODER_LR" \
-    --optimizer="adamW" \
+    --optimizer="$OPTIMIZER" \
+    --prodigy_safeguard_warmup=True \
+    --prodigy_use_bias_correction=True \
     --snr_gamma=5.0 \
     --lr_scheduler="constant" \
     --lr_warmup_steps=0 \
@@ -103,9 +129,9 @@ accelerate launch "$SDXL_DIR/train_dreambooth_lora_sdxl_advanced.py" \
     --report_to="$REPORT_TO"
 echo ""
 
-# ── Step 3: Inference ────────────────────────────────────────────────────────
+# ── Step 4: inference ────────────────────────────────────────────────────────
 echo "================================================="
-echo " [3/3] Inference..."
+echo " [4/4] Inference"
 echo "================================================="
 python "$SDXL_DIR/inference.py" \
     --lora_dir "$OUTPUT_DIR" \
