@@ -60,6 +60,9 @@ def main():
     parser.add_argument("--prompt", action="append", default=None,
                         help="Custom prompt (repeatable). Use the trigger word for the product.")
     parser.add_argument("--examples", action="store_true", help="Generate the 10 built-in example shots.")
+    parser.add_argument("--label_text", default=None,
+                        help="If set, the exact label text to render, e.g. \"Dior SAUVAGE\". "
+                             "A legible-text clause is appended to every prompt.")
     parser.add_argument("--no_offload", action="store_true", help="Disable CPU offload (use only on 80GB+ GPUs)")
     args = parser.parse_args()
 
@@ -83,6 +86,12 @@ def main():
         prompts = [e.format(tok=tok) for e in EXAMPLES]
     else:
         prompts = [s.format(tok=tok) for s in SCENES[: args.num_images]]
+
+    # Run 004: explicitly tell the model the exact label text to render.
+    if args.label_text:
+        clause = f', the front label clearly reads "{args.label_text}" in sharp, legible, correctly-spelled lettering'
+        prompts = [p + clause for p in prompts]
+
     n = len(prompts)
 
     out = Path(args.output_dir)
