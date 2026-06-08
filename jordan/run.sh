@@ -16,16 +16,20 @@ export FLUX2_DIR="${FLUX2_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 
 # Token + real name anchor. Used identically in captions and inference.
 export IDENTIFIER="${IDENTIFIER:-tjkzx Air Jordan 1 Chicago sneaker}"
-export RANK="${RANK:-64}"
+# Max-quality defaults, tuned for a large GPU (>= 48GB, e.g. your 96GB card).
+export RANK="${RANK:-96}"
 export MAX_STEPS="${MAX_STEPS:-2500}"
 export LEARNING_RATE="${LEARNING_RATE:-1e-4}"
 export RESOLUTION="${RESOLUTION:-1024}"
-export BATCH_SIZE="${BATCH_SIZE:-1}"
-export GRAD_ACCUM="${GRAD_ACCUM:-4}"
+export BATCH_SIZE="${BATCH_SIZE:-4}"
+export GRAD_ACCUM="${GRAD_ACCUM:-1}"
 export REPORT_TO="${REPORT_TO:-tensorboard}"
-# klein 9B is small enough to train in bf16 for best quality (default).
-# Set FP8=1 (needs GPU compute capability >= 8.9) only to save VRAM on a 24GB card.
+# klein 9B trains in bf16 for best quality (default). FP8 only saves VRAM on a
+# 24GB card at a small quality cost — leave it off on a big GPU.
 export FP8="${FP8:-0}"
+# On a big GPU we keep the whole model resident (no CPU offload) and use full
+# AdamW (not 8-bit) for best quality. Set LOW_VRAM=1 to re-enable both savers.
+export LOW_VRAM="${LOW_VRAM:-0}"
 
 export SRC_DIR="${SRC_DIR:-$FLUX2_DIR/data/product}"
 export CAPTIONS="${CAPTIONS:-$FLUX2_DIR/captions.jsonl}"
@@ -86,6 +90,16 @@ else
     echo "Training base in bf16 (best quality; klein 9B fits comfortably)."
 fi
 
+# On a big GPU: full model resident + full AdamW (best quality). Re-enable the
+# memory savers only when LOW_VRAM=1 (e.g. a 24GB card).
+MEM_FLAGS=""
+if [ "$LOW_VRAM" = "1" ]; then
+    MEM_FLAGS="--offload --use_8bit_adam"
+    echo "LOW_VRAM — CPU offload + 8-bit Adam enabled."
+else
+    echo "Big-GPU mode — no offload, full AdamW (max quality)."
+fi
+
 accelerate launch "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py" \
     --pretrained_model_name_or_path="black-forest-labs/FLUX.2-klein-9B" \
     --dataset_name="$CLEAN_DIR" \
@@ -94,10 +108,9 @@ accelerate launch "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py" \
     --output_dir="$OUTPUT_DIR" \
     --mixed_precision="bf16" \
     $PRECISION_FLAGS \
-    --offload \
+    $MEM_FLAGS \
     --cache_latents \
     --gradient_checkpointing \
-    --use_8bit_adam \
     --resolution="$RESOLUTION" \
     --train_batch_size="$BATCH_SIZE" \
     --gradient_accumulation_steps="$GRAD_ACCUM" \
@@ -109,9 +122,10 @@ accelerate launch "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py" \
     --rank="$RANK" \
     --lora_alpha="$RANK" \
     --max_train_steps="$MAX_STEPS" \
-    --checkpointing_steps=500 \
+    --checkpointing_steps=250 \
+    --upcast_before_saving \
     --validation_prompt="$VAL_PROMPT" \
-    --validation_epochs=20 \
+    --validation_epochs=50 \
     --num_validation_images=2 \
     --seed=42 \
     --report_to="$REPORT_TO"
@@ -121,10 +135,13 @@ echo ""
 echo "================================================="
 echo " [3/3] Inference (10 example shots)"
 echo "================================================="
+INFER_FLAGS="--no_offload"
+[ "$LOW_VRAM" = "1" ] && INFER_FLAGS=""
 python "$FLUX2_DIR/inference.py" \
     --lora_dir "$OUTPUT_DIR" \
     --output_dir "$FLUX2_DIR/output/inference" \
     --identifier "$IDENTIFIER" \
+    $INFER_FLAGS \
     --examples
 echo ""
 

@@ -5,9 +5,9 @@ this exact sneaker in any scene. End-to-end: `clone -> setup -> run`.
 **No label-text step, no compositing** — a sneaker's identity is shape + colorway
 + swoosh (a graphic, not spelled text), so the text-rendering problem is gone.
 
-klein 9B is the distilled, memory-efficient FLUX.2 variant — far cheaper and
-faster than dev (32B), and it runs on consumer-class GPUs. We train the base in
-**bf16 (no FP8) for best quality** since the model is small enough.
+Tuned for **maximum quality on a large GPU** (>= 48GB, e.g. a 96GB card): bf16
+base (no FP8), full AdamW (no 8-bit), no CPU offload, real batch size, fp32 LoRA
+save, and frequent checkpoints so we keep the sharpest one.
 
 Identity is anchored to a unique token **+ the real product name**
 (`tjkzx Air Jordan 1 Chicago sneaker`) in both captions and inference, so the
@@ -23,8 +23,10 @@ base model's prior for this famous shoe helps and the LoRA sharpens it to our re
 
 ## Requirements
 
-- **GPU:** klein 9B is light. **L40S / A100 40GB / RTX A6000 48GB** is comfortable
-  in bf16. A 24GB RTX 4090 works with `FP8=1` (needs compute capability >= 8.9).
+- **GPU (recommended):** a large card — **48GB+** (L40S/A6000) up to **96GB**.
+  The defaults below assume plenty of VRAM and maximize quality.
+- **Low-VRAM (24GB):** run `LOW_VRAM=1 FP8=1 BATCH_SIZE=1 GRAD_ACCUM=4 bash run.sh`
+  to re-enable offload + 8-bit Adam + FP8.
 - **Pod:** **PyTorch 2.8 / CUDA 12.4+** (FLUX.2 needs torch >= 2.7).
 - **HuggingFace:** klein 9B is **gated** — accept the license at
   https://huggingface.co/black-forest-labs/FLUX.2-klein-9B and use an HF token.
@@ -43,23 +45,28 @@ bash run.sh
 Captions (`captions.jsonl`) are generated locally with `caption.py` and committed,
 so the pod never needs an API key.
 
-## Config (env overrides)
+## Config (env overrides) — max-quality defaults
 
 | Variable | Default | Notes |
 |---|---|---|
 | `IDENTIFIER` | `tjkzx Air Jordan 1 Chicago sneaker` | Token + real name anchor |
-| `RANK` | `64` | LoRA rank (higher = more identity capacity) |
-| `MAX_STEPS` | `2500` | Checkpoints every 500 — pick the best |
+| `RANK` | `96` | LoRA rank (more capacity for fine shoe detail) |
+| `MAX_STEPS` | `2500` | Checkpoints every 250 — pick the best |
+| `BATCH_SIZE` | `4` | Real batch (no accumulation) — smoother gradients |
+| `GRAD_ACCUM` | `1` | |
 | `LEARNING_RATE` | `1e-4` | |
 | `RESOLUTION` | `1024` | |
-| `GRAD_ACCUM` | `4` | Effective batch = 4 |
-| `FP8` | `0` | bf16 base (best quality); set `1` to save VRAM on 24GB |
+| `FP8` | `0` | bf16 base (best quality); `1` only to save VRAM |
+| `LOW_VRAM` | `0` | `1` re-enables CPU offload + 8-bit Adam |
+
+Training also uses `--upcast_before_saving` (fp32 LoRA weights) and validation
+images every ~200 steps so you can watch identity lock in.
 
 ## Output
 
 ```
-output/product_jordan/pytorch_lora_weights.safetensors   # final LoRA
-output/product_jordan/checkpoint-*                        # intermediate (pick best)
+output/product_jordan/pytorch_lora_weights.safetensors   # final LoRA (fp32)
+output/product_jordan/checkpoint-250 / -500 / ...         # pick the best
 output/inference/                                         # 10 example shots
 ```
 
@@ -69,11 +76,11 @@ klein is distilled — low steps, low guidance. Use `{id}` or write the name dir
 
 ```bash
 python inference.py --lora_dir output/product_jordan --output_dir output/mine \
-  --steps 8 --guidance_scale 1.0 \
+  --steps 8 --guidance_scale 1.0 --no_offload \
   --prompt "a product photo of {id} on a concrete block, studio light, e-commerce" \
   --prompt "{id} on a basketball court under spotlights, dramatic shadows"
 ```
 
 Notes:
 - klein is distilled — `--steps 4` to `8`, `--guidance_scale 1.0`.
-- On a 40GB+ GPU add `--no_offload` for faster generation.
+- `--no_offload` keeps the model on the GPU for faster generation (use on 40GB+).
