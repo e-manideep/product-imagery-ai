@@ -18,6 +18,7 @@ import torch
 MODEL_ID = "black-forest-labs/FLUX.2-klein-9B"
 
 # 10 ready-to-use example scenes. {id} -> the identifier (token + real name).
+# For richer, campaign-grade prompts see prompts_sophisticated.txt (run with --prompts_file).
 EXAMPLES = [
     "a product photo of {id} on a white marble podium, soft studio softbox lighting, subtle shadow, e-commerce hero shot, 85mm, sharp focus",
     "{id} floating against a clean pastel gradient background, dramatic studio lighting, premium sneaker advertisement, ultra detailed",
@@ -50,6 +51,9 @@ def main():
     parser.add_argument("--prompt", action="append", default=None,
                         help="Custom prompt (repeatable). Use {id} or write the identifier directly.")
     parser.add_argument("--examples", action="store_true", help="Generate the 10 built-in example shots.")
+    parser.add_argument("--prompts_file", default=None,
+                        help="Path to a text file of prompts, one per line (blank lines and # comments ignored). "
+                             "Use {id} for the identifier.")
     parser.add_argument("--no_offload", action="store_true", help="Disable CPU offload (use only on very large GPUs)")
     args = parser.parse_args()
 
@@ -69,6 +73,12 @@ def main():
     idv = args.identifier
     if args.prompt:
         prompts = [p.replace("{id}", idv) for p in args.prompt]
+    elif args.prompts_file:
+        with open(args.prompts_file, encoding="utf-8") as f:
+            lines = [ln.strip() for ln in f]
+        prompts = [ln.replace("{id}", idv) for ln in lines if ln and not ln.startswith("#")]
+        if not prompts:
+            raise ValueError(f"No prompts found in {args.prompts_file}")
     else:
         prompts = [e.format(id=idv) for e in EXAMPLES]
 

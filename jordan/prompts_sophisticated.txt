@@ -1,0 +1,21 @@
+# Sophisticated, campaign-grade prompts for the Air Jordan 1 "Chicago" LoRA.
+# One prompt per line. Blank lines and lines starting with # are ignored.
+# {id} expands to the identifier (default: "tjkzx Air Jordan 1 Chicago sneaker").
+#
+# Run:
+#   python inference.py --lora_dir output/product_jordan --output_dir output/sophisticated \
+#     --no_offload --prompts_file prompts_sophisticated.txt
+#   (klein: keep --steps 8 --guidance_scale 1.0, the defaults)
+
+an editorial campaign photograph of {id} suspended in mid-air against a deep cobalt seamless backdrop, hard directional key light from the upper left carving sharp specular highlights on the leather, a cool blue rim light separating it from the background, shot on a 100mm macro at f/8, tack-sharp, high-end advertising aesthetic
+{id} resting on cracked sun-baked desert clay at golden hour, a long dramatic shadow stretching across the frame, warm amber backlight and gentle heat haze, distant dunes softly out of focus, cinematic wide shot, subtle anamorphic lens flare, Kodak Portra color grade
+a hyper-detailed product photograph of {id} on a wet black granite slab in a darkened studio, a single overhead softbox, scattered water droplets and a low layer of mist around the sole, moody chiaroscuro lighting with mirror-like reflections on the stone, 85mm at f/11, ultra sharp
+{id} on a brutalist concrete ledge inside an empty parking garage, cold fluorescent overheads mixed with one warm tungsten practical, teal-and-orange color grade, shallow depth of field, gritty urban editorial mood, shot on 35mm
+a luxury high-speed still life of {id} surrounded by frozen mid-air splashes of milk against a soft cream background, crisp droplets caught by a flash, glossy specular detail, premium advertising, 120mm macro
+{id} placed on a moss-covered stone beside a trickling forest stream, dappled morning sunlight filtering through the canopy, soft volumetric god rays, lush green bokeh, lifestyle nature campaign, 50mm at f/1.4
+a meticulous top-down flat lay of {id} on textured kraft paper, arranged with a fanned deck of color swatches, a brushed-steel ruler and graphite pencils, soft even north-window light, minimalist design-studio aesthetic, 50mm
+{id} on a rotating mirrored pedestal under a single hard spotlight in a pitch-black room, dramatic specular streaks and a deep reflection beneath, theatrical product-reveal lighting, high contrast, cinematic
+{id} half-buried in fine white studio sand with delicate wind-swept ripples, warm low-angle sunrise light raking across the texture, a soft peach gradient sky behind, serene minimalist campaign, medium-format look
+a close-up three-quarter hero shot of {id} on brushed aluminium, cool blue and magenta gel lighting from opposite sides, faint atmospheric haze, futuristic sneaker-drop teaser, ultra-detailed, 100mm
+{id} on a rain-slicked Tokyo street at night, neon shop signs reflecting in the puddles, bokeh of red and cyan lights, cinematic street photography shot wide open, moody and atmospheric, Blade Runner palette
+{id} styled on a marble plinth in a sunlit minimalist gallery, tall windows casting soft geometric light and long shadows across a polished concrete floor, generous architectural negative space, refined editorial, 35mm
