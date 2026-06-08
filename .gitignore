@@ -22,7 +22,8 @@ flux2/requirements_flux.txt
 flux2/dataset/
 flux2/output/
 
-# FLUX.2-dev (jordan) run artifacts (downloaded script, built dataset)
+# FLUX.2 (jordan) run artifacts (downloaded script, built dataset)
+jordan/train_dreambooth_lora_flux2_klein.py
 jordan/train_dreambooth_lora_flux2.py
 jordan/requirements_flux.txt
 jordan/dataset/

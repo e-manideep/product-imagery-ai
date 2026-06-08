@@ -2,7 +2,7 @@
 set -e
 
 echo "================================================="
-echo " Product Imagery - FLUX.2 [dev] 32B"
+echo " Product Imagery - FLUX.2 [klein] 9B"
 echo " Setup"
 echo "================================================="
 
@@ -56,9 +56,9 @@ pip install -U \
     --quiet
 
 # ── training script + flux requirements from diffusers main ──────────────────
-echo "Downloading FLUX.2 [dev] training script..."
-wget -q "https://raw.githubusercontent.com/huggingface/diffusers/main/examples/dreambooth/train_dreambooth_lora_flux2.py" \
-    -O "$FLUX2_DIR/train_dreambooth_lora_flux2.py"
+echo "Downloading FLUX.2 [klein] training script..."
+wget -q "https://raw.githubusercontent.com/huggingface/diffusers/main/examples/dreambooth/train_dreambooth_lora_flux2_klein.py" \
+    -O "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py"
 wget -q "https://raw.githubusercontent.com/huggingface/diffusers/main/examples/dreambooth/requirements_flux.txt" \
     -O "$FLUX2_DIR/requirements_flux.txt" 2>/dev/null || true
 [ -f "$FLUX2_DIR/requirements_flux.txt" ] && pip install -r "$FLUX2_DIR/requirements_flux.txt" --quiet || true
@@ -67,13 +67,13 @@ wget -q "https://raw.githubusercontent.com/huggingface/diffusers/main/examples/d
 echo "Configuring accelerate..."
 accelerate config default 2>/dev/null || true
 
-# HuggingFace login (FLUX.2-dev is GATED)
+# HuggingFace login (FLUX.2-klein-9B is GATED)
 if [ -n "$HF_TOKEN" ]; then
     echo "Logging in to HuggingFace..."
     python -c "from huggingface_hub import login; login(token='$HF_TOKEN')"
 else
     echo ""
-    echo "  WARNING: HF_TOKEN not set. FLUX.2-dev is a gated model."
+    echo "  WARNING: HF_TOKEN not set. FLUX.2-klein-9B is a gated model."
     echo "  export HF_TOKEN=hf_... before running."
     echo ""
 fi
@@ -84,7 +84,7 @@ echo ""
 echo "================================================="
 echo " Setup complete."
 echo " 1. Accept the license (once) at:"
-echo "      https://huggingface.co/black-forest-labs/FLUX.2-dev"
+echo "      https://huggingface.co/black-forest-labs/FLUX.2-klein-9B"
 echo " 2. export HF_TOKEN=hf_...   (if not already)"
 echo " 3. bash run.sh"
 echo "================================================="

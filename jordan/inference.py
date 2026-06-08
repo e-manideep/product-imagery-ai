@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Inference for the Air Jordan 1 "Chicago" FLUX.2 [dev] 32B DreamBooth LoRA.
+Inference for the Air Jordan 1 "Chicago" FLUX.2 [klein] 9B DreamBooth LoRA.
 
 Identity is anchored to a unique token + the real name
-("tjkzx Air Jordan 1 Chicago sneaker"), used directly in prompts. FLUX.2 [dev]
-is the full (non-distilled) model: real guidance (~4.0) and ~50 steps.
+("tjkzx Air Jordan 1 Chicago sneaker"), used directly in prompts. FLUX.2 [klein]
+is a distilled fast model: low guidance (~1.0) and a low step count (~4-8).
 """
 
 import os
@@ -15,7 +15,7 @@ from datetime import datetime
 
 import torch
 
-MODEL_ID = "black-forest-labs/FLUX.2-dev"
+MODEL_ID = "black-forest-labs/FLUX.2-klein-9B"
 
 # 10 ready-to-use example scenes. {id} -> the identifier (token + real name).
 EXAMPLES = [
@@ -43,8 +43,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--lora_dir", required=True, help="Training output dir with pytorch_lora_weights.safetensors")
     parser.add_argument("--output_dir", default="output/inference")
-    parser.add_argument("--steps", type=int, default=50, help="dev is full (non-distilled); ~50 is the sweet spot")
-    parser.add_argument("--guidance_scale", type=float, default=4.0)
+    parser.add_argument("--steps", type=int, default=8, help="klein is distilled; 4-8 is the sweet spot")
+    parser.add_argument("--guidance_scale", type=float, default=1.0)
     parser.add_argument("--identifier", default="tjkzx Air Jordan 1 Chicago sneaker",
                         help="Token + real name phrase used in every prompt")
     parser.add_argument("--prompt", action="append", default=None,
@@ -53,10 +53,10 @@ def main():
     parser.add_argument("--no_offload", action="store_true", help="Disable CPU offload (use only on very large GPUs)")
     args = parser.parse_args()
 
-    from diffusers import Flux2Pipeline
+    from diffusers import Flux2KleinPipeline
 
     print(f"Loading {MODEL_ID} (bf16)...")
-    pipe = Flux2Pipeline.from_pretrained(MODEL_ID, torch_dtype=torch.bfloat16)
+    pipe = Flux2KleinPipeline.from_pretrained(MODEL_ID, torch_dtype=torch.bfloat16)
     if args.no_offload:
         pipe.to("cuda")
     else:

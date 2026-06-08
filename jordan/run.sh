@@ -1,9 +1,9 @@
 #!/bin/bash
-# Air Jordan 1 "Chicago" — FLUX.2 [dev] 32B DreamBooth LoRA (Plan B), quality-first.
+# Air Jordan 1 "Chicago" — FLUX.2 [klein] 9B DreamBooth LoRA (Plan B), quality-first.
 # Pipeline: build dataset -> train -> inference. No label text, no compositing
 # (a sneaker has no spelled label; identity is shape + colorway + swoosh).
 #
-#   export HF_TOKEN=hf_xxx     # must have accepted the FLUX.2-dev license
+#   export HF_TOKEN=hf_xxx     # must have accepted the FLUX.2-klein-9B license
 #   bash run.sh
 #
 # Identity is anchored to a unique token + the real product name
@@ -23,9 +23,9 @@ export RESOLUTION="${RESOLUTION:-1024}"
 export BATCH_SIZE="${BATCH_SIZE:-1}"
 export GRAD_ACCUM="${GRAD_ACCUM:-4}"
 export REPORT_TO="${REPORT_TO:-tensorboard}"
-# FP8=1 uses torchao FP8 training (needs GPU compute capability >= 8.9).
-# Set FP8=0 only on a very large GPU (H200/B200) to train the base in bf16.
-export FP8="${FP8:-1}"
+# klein 9B is small enough to train in bf16 for best quality (default).
+# Set FP8=1 (needs GPU compute capability >= 8.9) only to save VRAM on a 24GB card.
+export FP8="${FP8:-0}"
 
 export SRC_DIR="${SRC_DIR:-$FLUX2_DIR/data/product}"
 export CAPTIONS="${CAPTIONS:-$FLUX2_DIR/captions.jsonl}"
@@ -36,7 +36,7 @@ export OUTPUT_DIR="${OUTPUT_DIR:-$FLUX2_DIR/output/product_jordan}"
 export VAL_PROMPT="${VAL_PROMPT:-a photo of ${IDENTIFIER} on a city street at golden hour, cinematic}"
 
 echo "================================================="
-echo " Air Jordan 1 Chicago — FLUX.2 [dev] 32B LoRA"
+echo " Air Jordan 1 Chicago — FLUX.2 [klein] 9B LoRA"
 echo "================================================="
 echo "  IDENTIFIER:    $IDENTIFIER"
 echo "  RANK:          $RANK"
@@ -46,7 +46,7 @@ echo "  RESOLUTION:    $RESOLUTION"
 echo "  FP8 training:  $FP8"
 echo ""
 
-if [ ! -f "$FLUX2_DIR/train_dreambooth_lora_flux2.py" ]; then
+if [ ! -f "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py" ]; then
     echo "ERROR: training script missing. Run setup.sh first."
     exit 1
 fi
@@ -74,18 +74,20 @@ echo ""
 
 # ── Step 2: train ────────────────────────────────────────────────────────────
 echo "================================================="
-echo " [2/3] Train FLUX.2 [dev] LoRA"
+echo " [2/3] Train FLUX.2 [klein] 9B LoRA"
 echo "================================================="
 mkdir -p "$OUTPUT_DIR"
 
-PRECISION_FLAGS="--do_fp8_training"
-if [ "$FP8" = "0" ]; then
-    PRECISION_FLAGS=""
-    echo "FP8 disabled — training base in bf16 (requires a very large GPU)."
+PRECISION_FLAGS=""
+if [ "$FP8" = "1" ]; then
+    PRECISION_FLAGS="--do_fp8_training"
+    echo "FP8 enabled — lower VRAM (needs compute capability >= 8.9)."
+else
+    echo "Training base in bf16 (best quality; klein 9B fits comfortably)."
 fi
 
-accelerate launch "$FLUX2_DIR/train_dreambooth_lora_flux2.py" \
-    --pretrained_model_name_or_path="black-forest-labs/FLUX.2-dev" \
+accelerate launch "$FLUX2_DIR/train_dreambooth_lora_flux2_klein.py" \
+    --pretrained_model_name_or_path="black-forest-labs/FLUX.2-klein-9B" \
     --dataset_name="$CLEAN_DIR" \
     --caption_column="prompt" \
     --instance_prompt="a photo of ${IDENTIFIER}" \
