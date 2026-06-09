@@ -29,6 +29,12 @@ jordan/requirements_flux.txt
 jordan/dataset/
 jordan/output/
 
+# FLUX.2 (shirt) run artifacts (downloaded script, built dataset)
+shirt/train_dreambooth_lora_flux2_klein.py
+shirt/requirements_flux.txt
+shirt/dataset/
+shirt/output/
+
 # Model weights
 *.safetensors
 *.ckpt
