@@ -27,6 +27,8 @@ EXAMPLES = [
     "{id} worn by a man in a green park, soft daylight, casual lifestyle shot",
     "close-up of {id} on a man's torso, showing the print and fabric detail, studio light",
     "{id} worn by a man on a rooftop at dusk, city lights bokeh behind, cinematic lifestyle photography",
+    "a fashion e-commerce photo of {id} worn by a young Chinese man, plain light-grey studio background, soft even lighting, sharp focus",
+    "{id} worn by a Chinese man walking down a city street, casual street style, natural daylight, candid",
 ]
 
 
