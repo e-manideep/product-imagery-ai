@@ -17,7 +17,7 @@ export IDENTIFIER="${IDENTIFIER:-prtx shirt}"
 # regularises training with generated class images so the LoRA learns this exact
 # shirt's print while keeping the base model's ability to render people/scenes.
 # That lets us train longer (and pick the best checkpoint) without overfitting.
-export RANK="${RANK:-32}"
+export RANK="${RANK:-96}"   # Jordan config; prior preservation + dropout guard overfit
 export LORA_DROPOUT="${LORA_DROPOUT:-0.1}"
 export MAX_STEPS="${MAX_STEPS:-2500}"
 export CKPT_STEPS="${CKPT_STEPS:-250}"

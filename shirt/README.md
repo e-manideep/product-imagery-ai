@@ -34,7 +34,7 @@ quality lever is **prior preservation**, not a tiny rank/step count.
 |---|---|---|
 | Base model | FLUX.2-klein-9B, bf16 | the 9B that worked on Jordan; best quality |
 | **Prior preservation** | **ON, 200 class images** ("a man wearing a casual shirt") | the key lever — regularises so the LoRA learns only the print and keeps the model's ability to render people/scenes; stops overfit and enables longer training |
-| Adapter | LoRA **rank 32**, **dropout 0.1** | enough for a repeating leaf print, low + regularised to avoid overfit |
+| Adapter | LoRA **rank 96** (Jordan config), **dropout 0.1** | high capacity; prior preservation + dropout guard against overfit on the small set |
 | Trigger / identity | `prtx shirt`, scene-only captions | the trigger absorbs the exact shirt |
 | Steps | **2,500**, checkpoint every **250** | prior preservation makes longer training safe; pick the cleanest checkpoint |
 | Augmentation | pre-baked 12 + `--random_flip` | more variety from few real shots |
