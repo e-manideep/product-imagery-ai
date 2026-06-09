@@ -34,6 +34,7 @@ shirt/train_dreambooth_lora_flux2_klein.py
 shirt/requirements_flux.txt
 shirt/dataset/
 shirt/output/
+shirt/class_images/
 
 # Model weights
 *.safetensors
